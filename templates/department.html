@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ department }} — Справочник сотрудников</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% macro plural(n, one, few, many) -%}
+{%- set n10 = n % 10 -%}{%- set n100 = n % 100 -%}
+{%- if n10 == 1 and n100 != 11 -%}{{ one }}
+{%- elif n10 >= 2 and n10 <= 4 and (n100 < 12 or n100 > 14) -%}{{ few }}
+{%- else -%}{{ many }}
+{%- endif -%}
+{%- endmacro %}
+
+<header class="topbar">
+  <div class="brand"><div class="brand-icon">С</div><div><strong>Справочник сотрудников</strong><span>Корпоративный портал</span></div></div>
+  <div class="top-actions">
+    <span class="role-pill {{ role }}">{{ 'Администратор' if role == 'admin' else 'Сотрудник' }}</span>
+    <span class="user-name">{{ username }}</span>
+    <form action="{{ url_for('logout') }}" method="post"><button class="logout-button">Выйти</button></form>
+  </div>
+</header>
+<main class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  <nav class="breadcrumb">
+    <a href="{{ url_for('dashboard') }}">← Все отделы</a>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">{{ department }}</span>
+  </nav>
+
+  <section class="department-hero">
+    <div class="department-hero-icon">{{ department[:1]|upper }}</div>
+    <div>
+      <p class="eyebrow">ОТДЕЛ</p>
+      <h1>{{ department }}</h1>
+      <p class="welcome-text">{{ employees|length }} {{ plural(employees|length, 'сотрудник', 'сотрудника', 'сотрудников') }} в этом отделе</p>
+    </div>
+  </section>
+
+  <section class="directory-section" style="margin-top:30px">
+    <div class="section-heading"><div><h2>Сотрудники отдела</h2><p>Контакты и фото сотрудников этого отдела.</p></div><span class="result-count" id="result-count">{{ employees|length }} записей</span></div>
+    <div class="toolbar">
+      <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Поиск по имени или телефону..."></label>
+    </div>
+    <section class="employee-grid" id="employee-grid">
+      {% for employee in employees %}
+      <article class="employee-card" data-name="{{ employee.full_name|lower }}" data-department="{{ employee.department|lower }}" data-phone="{{ employee.phone|lower }}">
+        <div class="employee-main">
+          {% if employee.photo %}
+          <button type="button" class="avatar-btn"
+                  data-photo="{{ url_for('static', filename=employee.photo) }}"
+                  data-name="{{ employee.full_name|e }}"
+                  aria-label="Открыть фото {{ employee.full_name }}">
+            <img class="avatar" src="{{ url_for('static', filename=employee.photo) }}" alt="Фото {{ employee.full_name }}">
+          </button>
+          {% else %}
+          <div class="avatar avatar-placeholder">{{ employee.full_name[:1]|upper }}</div>
+          {% endif %}
+          <div class="employee-info">
+            <h3>{{ employee.full_name }}</h3>
+            <span class="department">{{ employee.department }}</span>
+            <a class="phone" href="tel:{{ employee.phone }}">{{ employee.phone }}</a>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <div class="empty-state hidden" id="no-results"><div class="empty-icon">⌕</div><h3>Ничего не найдено</h3><p>Измените поисковый запрос.</p></div>
+  </section>
+
+  <footer>Справочник сотрудников <span>·</span> Защищённый корпоративный ресурс</footer>
+</main>
+
+<div class="photo-modal hidden" id="photo-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <button class="photo-modal-close" id="photo-modal-close" type="button" aria-label="Закрыть">×</button>
+  <div class="photo-modal-inner">
+    <img class="photo-modal-img" id="photo-modal-img" src="" alt="">
+    <div class="photo-modal-name" id="photo-modal-name"></div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // Search within department
+    const searchInput = document.getElementById('search-input');
+    const resultCount = document.getElementById('result-count');
+    const noResults = document.getElementById('no-results');
+    const cards = Array.from(document.querySelectorAll('.employee-card'));
+
+    function pluralJS(n, one, few, many) {
+      const n10 = n % 10, n100 = n % 100;
+      if (n10 === 1 && n100 !== 11) return one;
+      if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few;
+      return many;
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        let visible = 0;
+        cards.forEach(card => {
+          const match = !q ||
+            (card.dataset.name || '').includes(q) ||
+            (card.dataset.department || '').includes(q) ||
+            (card.dataset.phone || '').includes(q);
+          card.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+        if (resultCount) resultCount.textContent = visible + ' ' + pluralJS(visible, 'запись', 'записи', 'записей');
+        if (noResults) noResults.classList.toggle('hidden', visible > 0);
+      });
+    }
+
+    // Lightbox
+    const modal = document.getElementById('photo-modal');
+    const modalImg = document.getElementById('photo-modal-img');
+    const modalName = document.getElementById('photo-modal-name');
+    const closeBtn = document.getElementById('photo-modal-close');
+    if (!modal || !modalImg || !closeBtn) return;
+
+    function openModal(src, name) {
+      modalImg.src = src;
+      modalImg.alt = name ? 'Фото ' + name : 'Фото';
+      modalName.textContent = name || '';
+      modalName.style.display = name ? '' : 'none';
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => modal.classList.add('active'));
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      setTimeout(() => { modal.classList.add('hidden'); modalImg.src = ''; }, 180);
+    }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.avatar-btn');
+      if (!btn) return;
+      e.preventDefault();
+      openModal(btn.dataset.photo, btn.dataset.name);
+    });
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  })();
+</script>
+</body>
+</html>

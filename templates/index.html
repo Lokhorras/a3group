@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Справочник сотрудников</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% macro plural(n, one, few, many) -%}
+{%- set n10 = n % 10 -%}{%- set n100 = n % 100 -%}
+{%- if n10 == 1 and n100 != 11 -%}{{ one }}
+{%- elif n10 >= 2 and n10 <= 4 and (n100 < 12 or n100 > 14) -%}{{ few }}
+{%- else -%}{{ many }}
+{%- endif -%}
+{%- endmacro %}
+
+<header class="topbar">
+  <div class="brand"><div class="brand-icon">С</div><div><strong>Справочник сотрудников</strong><span>А ТРИ ГРУПП</span></div></div>
+  <div class="top-actions">
+    <span class="role-pill {{ role }}">{{ 'Администратор' if role == 'admin' else 'Сотрудник' }}</span>
+    <span class="user-name">{{ username }}</span>
+    <form action="{{ url_for('logout') }}" method="post"><button class="logout-button">Выйти</button></form>
+  </div>
+</header>
+<main class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  {% if role == 'admin' %}
+  <section class="welcome">
+    <div><p class="eyebrow">ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>Добро пожаловать, администратор</h1><p class="welcome-text">Управляйте сотрудниками, контактами и доступом к системе.</p></div>
+    <div class="stats"><div class="stat"><strong id="employee-count">{{ employees|length }}</strong><span>Сотрудников</span></div><div class="stat"><strong>{{ departments|length }}</strong><span>Отделов</span></div></div>
+  </section>
+  <nav class="admin-nav"><a href="#departments">Отделы</a><a href="#directory">Справочник</a><a href="#add-form">Добавить сотрудника</a></nav>
+  {% else %}
+  <section class="welcome employee-welcome">
+    <div><p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</p><h1>Здравствуйте!</h1><p class="welcome-text">Здесь вы можете найти контакты коллег и информацию об отделах.</p></div>
+    <div class="employee-access">Роль: <strong>Сотрудник</strong><br><small>Доступ только для просмотра</small></div>
+  </section>
+  {% endif %}
+
+  <!-- ===== Отделы ===== -->
+  <section id="departments" class="departments-section">
+    <div class="section-heading">
+      <div><h2>Отделы компании</h2><p>Выберите отдел, чтобы увидеть всех его сотрудников.</p></div>
+      <span class="result-count">{{ department_stats|length }} {{ plural(department_stats|length, 'отдел', 'отдела', 'отделов') }}</span>
+    </div>
+    {% if department_stats %}
+    <div class="department-grid">
+      {% for dept in department_stats %}
+      <a class="department-card" href="{{ url_for('department_view', name=dept.name) }}">
+        <div class="department-icon">{{ dept.name[:1]|upper }}</div>
+        <div class="department-body">
+          <h3>{{ dept.name }}</h3>
+          <span class="department-count">{{ dept.count }} {{ plural(dept.count, 'сотрудник', 'сотрудника', 'сотрудников') }}</span>
+        </div>
+        <span class="department-arrow">→</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon">♙</div><h3>Пока нет отделов</h3><p>Отделы появятся, когда вы добавите первого сотрудника.</p></div>
+    {% endif %}
+  </section>
+
+  <!-- ===== Справочник ===== -->
+  <section id="directory" class="directory-section">
+    <div class="section-heading"><div><h2>Справочник сотрудников</h2><p>Контакты и подразделения компании.</p></div><span class="result-count" id="result-count">{{ employees|length }} записей</span></div>
+    <div class="toolbar">
+      <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Поиск по имени, отделу или телефону..."></label>
+      <select id="department-filter" aria-label="Фильтр по отделу"><option value="">Все отделы</option>{% for department in departments %}<option value="{{ department }}">{{ department }}</option>{% endfor %}</select>
+    </div>
+    <section class="employee-grid" id="employee-grid">
+      {% for employee in employees %}
+      <article class="employee-card" data-name="{{ employee.full_name|lower }}" data-department="{{ employee.department|lower }}" data-phone="{{ employee.phone|lower }}">
+        <div class="employee-main">
+          {% if employee.photo %}
+          <button type="button" class="avatar-btn"
+                  data-photo="{{ url_for('static', filename=employee.photo) }}"
+                  data-name="{{ employee.full_name|e }}"
+                  aria-label="Открыть фото {{ employee.full_name }}">
+            <img class="avatar" src="{{ url_for('static', filename=employee.photo) }}" alt="Фото {{ employee.full_name }}">
+          </button>
+          {% else %}
+          <div class="avatar avatar-placeholder">{{ employee.full_name[:1]|upper }}</div>
+          {% endif %}
+          <div class="employee-info"><h3>{{ employee.full_name }}</h3><span class="department">{{ employee.department }}</span><a class="phone" href="tel:{{ employee.phone }}">{{ employee.phone }}</a></div>
+        </div>
+        {% if role == 'admin' %}
+        <div class="card-actions">
+          <div class="admin-card-actions">
+            <button class="edit-button" type="button"
+              data-id="{{ employee.id }}" data-name="{{ employee.full_name|e }}" data-department="{{ employee.department|e }}"
+              data-phone="{{ employee.phone|e }}" data-username="{{ employee.username|e if employee.username else '' }}">Изменить</button>
+            <form action="{{ url_for('delete_employee', employee_id=employee.id) }}" method="post" onsubmit="return confirm('Удалить сотрудника и его аккаунт?')"><button class="delete-button" type="submit">Удалить</button></form>
+          </div>
+        </div>
+        {% endif %}
+      </article>
+      {% else %}
+      <div class="empty-state" id="empty-state"><div class="empty-icon">♙</div><h3>Пока нет сотрудников</h3><p>Администратор может добавить первую запись.</p></div>
+      {% endfor %}
+    </section>
+    <div class="empty-state hidden" id="no-results"><div class="empty-icon">⌕</div><h3>Ничего не найдено</h3><p>Измените поисковый запрос или выберите другой отдел.</p></div>
+  </section>
+
+  {% if role == 'admin' %}
+  <section class="form-section" id="add-form">
+    <div class="form-heading"><div><p class="eyebrow">НОВАЯ ЗАПИСЬ И ДОСТУП</p><h2 id="form-title">Добавить сотрудника</h2><p>Администратор создаёт профиль и выдаёт сотруднику логин и пароль.</p></div><span class="form-symbol">＋</span></div>
+    <form class="employee-form" id="employee-form" action="{{ url_for('add_employee') }}" method="post" enctype="multipart/form-data">
+      <label>ФИО сотрудника<input name="full_name" type="text" required maxlength="120" placeholder="Иванов Иван Иванович"></label>
+      <label>Отдел
+        <input name="department" type="text" list="departments-list" required maxlength="80" autocomplete="off" placeholder="Выберите из списка или введите новый">
+        <datalist id="departments-list">{% for department in departments %}<option value="{{ department }}"></option>{% endfor %}</datalist>
+        <small>Выберите существующий отдел или введите название нового.</small>
+      </label>
+      <label>Номер телефона<input name="phone" type="tel" required maxlength="30" placeholder="+7 900 000-00-00"></label>
+      <label>Логин для входа<input name="username" type="text" required maxlength="60" placeholder="ivanov"></label>
+      <label id="password-label">Пароль для сотрудника<input name="password" type="password" minlength="8" placeholder="Минимум 8 символов"><small>При редактировании оставьте пустым, чтобы не менять пароль.</small></label>
+      <label class="file-field">Фотография сотрудника<input name="photo" id="photo-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp"><span class="file-hint" id="file-hint">Файл не выбран · до 5 МБ</span></label>
+      <div class="form-buttons"><button class="submit-button" type="submit" id="save-button">Добавить сотрудника</button><button class="cancel-edit hidden" type="button" id="cancel-edit">Отмена редактирования</button></div>
+    </form>
+  </section>
+  {% else %}
+  <section class="employee-note"><strong>Ваши права доступа</strong><p>Вы можете просматривать справочник и звонить коллегам. Добавление, изменение и удаление сотрудников доступно только администратору.</p></section>
+  {% endif %}
+  <footer>Справочник сотрудников <span>·</span> Защищённый корпоративный ресурс</footer>
+</main>
+
+<!-- Лайтбокс -->
+<div class="photo-modal hidden" id="photo-modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <button class="photo-modal-close" id="photo-modal-close" type="button" aria-label="Закрыть">×</button>
+  <div class="photo-modal-inner">
+    <img class="photo-modal-img" id="photo-modal-img" src="" alt="">
+    <div class="photo-modal-name" id="photo-modal-name"></div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script>
+  // ===== Лайтбокс =====
+  (function () {
+    const modal = document.getElementById('photo-modal');
+    const modalImg = document.getElementById('photo-modal-img');
+    const modalName = document.getElementById('photo-modal-name');
+    const closeBtn = document.getElementById('photo-modal-close');
+    if (!modal || !modalImg || !closeBtn) return;
+
+    function openModal(src, name) {
+      modalImg.src = src;
+      modalImg.alt = name ? 'Фото ' + name : 'Фото';
+      modalName.textContent = name || '';
+      modalName.style.display = name ? '' : 'none';
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => modal.classList.add('active'));
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      setTimeout(() => { modal.classList.add('hidden'); modalImg.src = ''; }, 180);
+    }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.avatar-btn');
+      if (!btn) return;
+      e.preventDefault();
+      openModal(btn.dataset.photo, btn.dataset.name);
+    });
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  })();
+</script>
+</body>
+</html>
