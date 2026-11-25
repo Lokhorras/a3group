@@ -1,8 +1,9 @@
 import os
 import sqlite3
 import uuid
+from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -31,18 +32,25 @@ def init_db():
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name TEXT NOT NULL,
+                birth_date TEXT,
+                office TEXT,
                 department TEXT NOT NULL,
-                phone TEXT NOT NULL,
+                city TEXT,
+                position TEXT,
+                phone TEXT,
                 photo TEXT,
                 username TEXT UNIQUE,
                 password_hash TEXT
             )
         """)
-        # Миграция существующей базы из предыдущей версии проекта.
         columns = {row["name"] for row in db.execute("PRAGMA table_info(employees)")}
         for name, definition in [
             ("username", "TEXT"),
-            ("password_hash", "TEXT")
+            ("password_hash", "TEXT"),
+            ("birth_date", "TEXT"),
+            ("office", "TEXT"),
+            ("city", "TEXT"),
+            ("position", "TEXT"),
         ]:
             if name not in columns:
                 db.execute(f"ALTER TABLE employees ADD COLUMN {name} {definition}")
@@ -60,6 +68,23 @@ def init_db():
                 "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
                 ("admin", generate_password_hash("admin123"))
             )
+
+@app.template_filter("ru_date")
+def ru_date(value):
+    if not value:
+        return "—"
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d.%m.%Y")
+    except (ValueError, TypeError):
+        return value
+
+@app.template_filter("dept_hue")
+def dept_hue(name):
+    return (sum(ord(c) for c in (name or "")) * 37) % 360
+
+@app.context_processor
+def inject_globals():
+    return {"today_mmdd": datetime.now().strftime("%m-%d")}
 
 def login_required(role=None):
     def decorator(view):
@@ -152,6 +177,7 @@ def dashboard():
         username=session["username"],
         current_employee=current_employee,
     )
+
 @app.route("/department/<path:name>")
 @login_required()
 def department_view(name):
@@ -174,13 +200,20 @@ def department_view(name):
 @app.route("/employees", methods=["POST"])
 @login_required("admin")
 def add_employee():
-    full_name = request.form.get("full_name", "").strip()
+    full_name  = request.form.get("full_name", "").strip()
+    birth_date = request.form.get("birth_date", "").strip()
+    office     = request.form.get("office", "").strip()
     department = request.form.get("department", "").strip()
-    phone = request.form.get("phone", "").strip()
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "")
-    if not full_name or not department or not phone or not username or not password:
-        flash("Заполните все обязательные поля, включая логин и пароль.", "error")
+    position   = request.form.get("position", "").strip()
+    city       = request.form.get("city", "").strip()
+    phone      = request.form.get("phone", "").strip()
+    username   = request.form.get("username", "").strip()
+    password   = request.form.get("password", "")
+
+    if not all([full_name, birth_date, office, department, position,
+                city, phone, username, password]):
+        flash("Заполните все поля: ФИО, дата рождения, офис, отдел, должность, "
+              "город, телефон, логин, пароль.", "error")
         return redirect(url_for("dashboard") + "#add-form")
     if len(password) < 8:
         flash("Пароль сотрудника должен содержать не менее 8 символов.", "error")
@@ -190,9 +223,12 @@ def add_employee():
         photo_path = save_photo(request.files.get("photo"))
         with get_db() as db:
             db.execute("""
-                INSERT INTO employees (full_name, department, phone, photo, username, password_hash)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (full_name, department, phone, photo_path, username, generate_password_hash(password)))
+                INSERT INTO employees
+                    (full_name, birth_date, office, department, position, city,
+                     phone, photo, username, password_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (full_name, birth_date, office, department, position, city,
+                  phone, photo_path, username, generate_password_hash(password)))
         flash("Сотрудник и его аккаунт успешно добавлены.", "success")
     except sqlite3.IntegrityError:
         flash("Такой логин уже существует. Выберите другой.", "error")
@@ -203,13 +239,20 @@ def add_employee():
 @app.route("/employees/<int:employee_id>/edit", methods=["POST"])
 @login_required("admin")
 def edit_employee(employee_id):
-    full_name = request.form.get("full_name", "").strip()
+    full_name  = request.form.get("full_name", "").strip()
+    birth_date = request.form.get("birth_date", "").strip()
+    office     = request.form.get("office", "").strip()
     department = request.form.get("department", "").strip()
-    phone = request.form.get("phone", "").strip()
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "")
-    if not all([full_name, department, phone, username]):
-        flash("Заполните ФИО, отдел, телефон и логин.", "error")
+    position   = request.form.get("position", "").strip()
+    city       = request.form.get("city", "").strip()
+    phone      = request.form.get("phone", "").strip()
+    username   = request.form.get("username", "").strip()
+    password   = request.form.get("password", "")
+
+    if not all([full_name, birth_date, office, department, position,
+                city, phone, username]):
+        flash("Заполните ФИО, дату рождения, офис, отдел, должность, "
+              "город, телефон и логин.", "error")
         return redirect(url_for("dashboard"))
 
     try:
@@ -227,14 +270,19 @@ def edit_employee(employee_id):
                 flash("Новый пароль должен содержать не менее 8 символов.", "error")
                 return redirect(url_for("dashboard"))
             if password:
-                db.execute("""UPDATE employees SET full_name=?, department=?, phone=?, photo=?,
-                              username=?, password_hash=? WHERE id=?""",
-                           (full_name, department, phone, photo_path, username,
-                            generate_password_hash(password), employee_id))
+                db.execute("""UPDATE employees SET
+                                full_name=?, birth_date=?, office=?, department=?,
+                                position=?, city=?, phone=?, photo=?, username=?, password_hash=?
+                              WHERE id=?""",
+                           (full_name, birth_date, office, department, position, city,
+                            phone, photo_path, username, generate_password_hash(password), employee_id))
             else:
-                db.execute("""UPDATE employees SET full_name=?, department=?, phone=?, photo=?,
-                              username=? WHERE id=?""",
-                           (full_name, department, phone, photo_path, username, employee_id))
+                db.execute("""UPDATE employees SET
+                                full_name=?, birth_date=?, office=?, department=?,
+                                position=?, city=?, phone=?, photo=?, username=?
+                              WHERE id=?""",
+                           (full_name, birth_date, office, department, position, city,
+                            phone, photo_path, username, employee_id))
         flash("Данные сотрудника обновлены.", "success")
     except sqlite3.IntegrityError:
         flash("Такой логин уже используется.", "error")
@@ -252,15 +300,6 @@ def delete_employee(employee_id):
             remove_photo(employee["photo"])
     flash("Сотрудник удалён.", "success")
     return redirect(url_for("dashboard"))
-
-@app.route("/api/employees")
-@login_required()
-def api_employees():
-    with get_db() as db:
-        rows = db.execute(
-            "SELECT id, full_name, department, phone, photo FROM employees ORDER BY full_name COLLATE NOCASE"
-        ).fetchall()
-    return jsonify([dict(row) for row in rows])
 
 @app.errorhandler(413)
 def too_large(_error):

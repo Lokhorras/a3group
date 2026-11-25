@@ -6,13 +6,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultCount = document.getElementById("result-count");
 
   function applyFilters() {
-    if (!search || !filter) return;
+    if (!search) return;
     const query = search.value.trim().toLocaleLowerCase("ru");
-    const department = filter.value.toLocaleLowerCase("ru");
+    const department = filter ? filter.value.toLocaleLowerCase("ru") : "";
     let visible = 0;
     cards.forEach(card => {
-      const matchesText = card.dataset.name.includes(query) ||
-        card.dataset.department.includes(query) || card.dataset.phone.includes(query);
+      const haystack = [
+        card.dataset.name,
+        card.dataset.position,
+        card.dataset.department,
+        card.dataset.phone,
+        card.dataset.office,
+        card.dataset.city,
+        card.dataset.birthDate,
+      ].filter(Boolean).join(" ");
+      const matchesText = haystack.includes(query);
       const matchesDepartment = !department || card.dataset.department === department;
       const show = matchesText && matchesDepartment;
       card.classList.toggle("hidden", !show);
@@ -33,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
       photoInput.value = "";
       fileHint.textContent = "Файл не выбран · до 5 МБ";
     } else if (file) fileHint.textContent = file.name;
+    else fileHint.textContent = "Файл не выбран · до 5 МБ";
   });
 
   const form = document.getElementById("employee-form");
@@ -43,11 +52,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".edit-button").forEach(button => {
       button.addEventListener("click", () => {
         form.action = `/employees/${button.dataset.id}/edit`;
-        form.elements.full_name.value = button.dataset.name;
-        form.elements.department.value = button.dataset.department;
-        form.elements.phone.value = button.dataset.phone;
-        form.elements.username.value = button.dataset.username;
-        form.elements.password.value = "";
+        form.elements.full_name.value  = button.dataset.name || "";
+        form.elements.birth_date.value = button.dataset.birthDate || "";
+        form.elements.office.value     = button.dataset.office || "";
+        form.elements.department.value = button.dataset.department || "";
+        form.elements.position.value   = button.dataset.position || "";
+        form.elements.city.value       = button.dataset.city || "";
+        form.elements.phone.value      = button.dataset.phone || "";
+        form.elements.username.value   = button.dataset.username || "";
+        form.elements.password.value   = "";
         form.elements.password.required = false;
         title.textContent = "Редактировать сотрудника";
         save.textContent = "Сохранить изменения";
@@ -64,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cancel.classList.add("hidden");
       if (fileHint) fileHint.textContent = "Файл не выбран · до 5 МБ";
     }
-    cancel.addEventListener("click", resetForm);
+    if (cancel) cancel.addEventListener("click", resetForm);
   }
 
   document.querySelectorAll('input[type="tel"]').forEach(input => {
