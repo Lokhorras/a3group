@@ -55,15 +55,13 @@
   <div class="toolbar" style="margin-top:26px">
     <label class="search-box">
       <span>⌕</span>
-      <input id="search-input" type="search" autocomplete="off"
-             placeholder="Поиск по ФИО, должности, офису, городу, телефону…">
+      <input id="search-input" type="search" autocomplete="off" aria-label="Поиск">
     </label>
   </div>
 
   <div class="section-heading">
     <div>
       <h2>Сотрудники отдела</h2>
-      <p>Контакты и данные коллег из отдела «{{ department }}».</p>
     </div>
     <span class="result-count" id="result-count">{{ employees|length }} из {{ employees|length }}</span>
   </div>
@@ -160,7 +158,6 @@
     <div class="empty-state hidden" id="no-results">
       <div class="empty-icon">⌕</div>
       <h3>Ничего не найдено</h3>
-      <p>Попробуйте изменить поисковый запрос.</p>
     </div>
   </div>
 

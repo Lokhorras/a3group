@@ -44,7 +44,6 @@
       <div>
         <p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</p>
         <h1>Здравствуйте, {{ current_employee.full_name if current_employee else username }}!</h1>
-        <p class="welcome-text">Здесь вы можете найти контакты коллег и посмотреть структуру компании.</p>
       </div>
       {% if current_employee %}
       <div class="employee-access">
@@ -60,10 +59,9 @@
   <div class="toolbar">
     <label class="search-box">
       <span>⌕</span>
-      <input id="search-input" type="search" autocomplete="off"
-             placeholder="Поиск по ФИО, должности, отделу, офису, городу, телефону…">
+      <input id="search-input" type="search" autocomplete="off" aria-label="Поиск">
     </label>
-    <select id="department-filter">
+    <select id="department-filter" aria-label="Фильтр по отделу">
       <option value="">Все отделы</option>
       {% for d in departments %}
         <option value="{{ d|lower }}">{{ d }}</option>
@@ -75,7 +73,6 @@
     <div class="section-heading">
       <div>
         <h2>Отделы</h2>
-        <p>Нажмите на отдел, чтобы открыть список его сотрудников.</p>
       </div>
     </div>
     <div class="department-grid">
@@ -101,7 +98,6 @@
     <div class="section-heading">
       <div>
         <h2>Все сотрудники</h2>
-        <p>Полный список с контактными данными.</p>
       </div>
       <span class="result-count" id="result-count">{{ employees|length }} из {{ employees|length }}</span>
     </div>
@@ -220,20 +216,12 @@
       <div class="empty-state hidden" id="no-results">
         <div class="empty-icon">⌕</div>
         <h3>Ничего не найдено</h3>
-        <p>Попробуйте изменить поисковый запрос или фильтр отдела.</p>
       </div>
 
       {% if not employees %}
         <div class="empty-state">
           <div class="empty-icon">∅</div>
           <h3>Сотрудников пока нет</h3>
-          <p>
-            {% if role == 'admin' %}
-              Добавьте первого сотрудника через форму ниже.
-            {% else %}
-              Обратитесь к администратору портала.
-            {% endif %}
-          </p>
         </div>
       {% endif %}
     </div>
@@ -245,7 +233,6 @@
       <div>
         <p class="eyebrow">УПРАВЛЕНИЕ КАДРАМИ</p>
         <h2 id="form-title">Добавить сотрудника</h2>
-        <p>Заполните карточку и создайте для сотрудника аккаунт входа.</p>
       </div>
       <div class="form-symbol">＋</div>
     </div>
@@ -265,7 +252,7 @@
 
       <label>
         Офис
-        <input type="text" name="office" required placeholder="Например, БЦ «Сити»">
+        <input type="text" name="office" required>
       </label>
       <label>
         Отдел
@@ -274,7 +261,7 @@
 
       <label>
         Должность
-        <input type="text" name="position" required placeholder="Например, Senior-разработчик">
+        <input type="text" name="position" required>
       </label>
       <label>
         Город
@@ -283,7 +270,7 @@
 
       <label>
         Телефон
-        <input type="tel" name="phone" required placeholder="+7 (___) ___-__-__">
+        <input type="tel" name="phone" required>
       </label>
       <label>
         Логин
@@ -293,14 +280,12 @@
       <label>
         Пароль
         <input type="password" name="password" required minlength="8" autocomplete="new-password">
-        <small>Минимум 8 символов. При редактировании оставьте пустым, чтобы не менять.</small>
       </label>
 
       <label>
         Фотография
         <input type="file" name="photo" id="photo-input"
                accept="image/png,image/jpeg,image/gif,image/webp">
-        <span class="file-hint" id="file-hint">Файл не выбран · до 5 МБ</span>
       </label>
 
       <div class="form-buttons">
@@ -309,12 +294,6 @@
       </div>
     </form>
   </section>
-
-  <aside class="employee-note">
-    <strong>Заметка администратора</strong>
-    <p>Каждый сотрудник получает логин и пароль, чтобы войти в личный кабинет.
-       Пароль хранится в виде хэша. Фото необязательно.</p>
-  </aside>
   {% endif %}
 
 </main>
