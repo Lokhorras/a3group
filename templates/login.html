@@ -1,25 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Вход — Справочник сотрудников</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход — А3 ГРУПП</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="login-page">
-  <main class="login-card">
-    <div class="brand-icon login-logo">С</div>
-    <p class="eyebrow">АТРИГРУПП</p>
+
+  <div class="login-card">
+    <div class="brand-icon login-logo">А3</div>
+    <p class="eyebrow">А3 ГРУПП</p>
     <h1>Вход в систему</h1>
-    <p class="login-subtitle">Введите логин и пароль для доступа к справочнику.</p>
+    <p class="login-subtitle">Введите учётные данные, выданные администратором.</p>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
     {% endwith %}
-    <form method="post" class="login-form">
-      <label>Логин<input name="username" autocomplete="username" required placeholder="Введите логин"></label>
-      <label>Пароль<input name="password" type="password" autocomplete="current-password" required placeholder="Введите пароль"></label>
+
+    <form class="login-form" method="post" action="{{ url_for('login') }}">
+      <label>
+        Логин
+        <input type="text" name="username" required autofocus autocomplete="username">
+      </label>
+      <label>
+        Пароль
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
       <button class="submit-button" type="submit">Войти</button>
     </form>
-    <p class="login-foot">Доступ предоставляется администратором компании.</p>
-  </main>
+
+    <p class="login-foot">
+      Если вы забыли пароль — обратитесь к администратору портала.
+    </p>
+  </div>
+
 </body>
 </html>
